@@ -81,6 +81,9 @@ export class TelegramJobReporter implements JobReporter {
       performer: meta.performer,
       duration: meta.durationSec ?? undefined,
       thumbnail,
+      reply_parameters: this.ctx.message
+        ? { message_id: this.ctx.message.message_id }
+        : undefined,
     })
   }
 

@@ -31,8 +31,8 @@ export class DownloadOrchestrator {
     await reporter.progress('⏳ Инициализация…')
     reporter.workingIndication()
     try {
-      await this.downloadAndSend(link.url, reporter, (percent) => {
-        reporter.progress(`⬇️ Скачивание… ${renderProgressBar(percent)}`).catch(() => undefined)
+      await this.downloadAndSend(link.url, reporter, (p) => {
+        reporter.progress(`${phaseLabel(p.phase)} ${renderProgressBar(p.percent)}`).catch(() => undefined)
       })
       await reporter.cancel()
     } catch (err) {
@@ -62,8 +62,8 @@ export class DownloadOrchestrator {
       reporter.workingIndication()
       await reporter.progress(`${prefix} — ⏳ Инициализация…`)
       try {
-        await this.downloadAndSend(track.url, reporter, (percent) => {
-          reporter.progress(`${prefix} ⬇️ ${renderProgressBar(percent)}`).catch(() => undefined)
+        await this.downloadAndSend(track.url, reporter, (p) => {
+          reporter.progress(`${prefix} ${phaseLabel(p.phase)} ${renderProgressBar(p.percent)}`).catch(() => undefined)
         })
       } catch (err) {
         if (err instanceof DownloadAuthError) {
@@ -82,13 +82,9 @@ export class DownloadOrchestrator {
   private async downloadAndSend(
     url: string,
     reporter: JobReporter,
-    onPercent?: (percent: number) => void,
+    onProgress?: (progress: { percent: number; phase: 'download' | 'transcode' }) => void,
   ): Promise<void> {
-    const result = await this.downloader.downloadWithRetry(
-      url,
-      2,
-      onPercent ? (p) => onPercent(p.percent) : undefined,
-    )
+    const result = await this.downloader.downloadWithRetry(url, 2, onProgress)
     try {
       await reporter.sendAudio(result.files[0])
       this.admin.reset(AUTH_ERROR_KEY)
@@ -111,6 +107,10 @@ export class DownloadOrchestrator {
 function describeError(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err)
   return msg.split('\n')[0].slice(0, 200)
+}
+
+function phaseLabel(phase: 'download' | 'transcode'): string {
+  return phase === 'transcode' ? '⚙️ Транскодирование…' : '⬇️ Скачивание…'
 }
 
 const PROGRESS_BAR_LENGTH = 20

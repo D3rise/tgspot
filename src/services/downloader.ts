@@ -12,8 +12,11 @@ export interface DownloadResult {
   files: string[]
 }
 
+export type DownloadPhase = 'download' | 'transcode'
+
 export interface DownloadProgress {
   percent: number
+  phase: DownloadPhase
 }
 
 export type ProgressListener = (progress: DownloadProgress) => void
@@ -112,6 +115,7 @@ export class DownloaderService {
       let stdout = ''
       let progressBuffer = ''
       let lastReportedPercent = -1
+      let transcodeAnnounced = false
 
       const consumeProgress = (chunk: string) => {
         if (!onProgress) return
@@ -124,7 +128,11 @@ export class DownloaderService {
           const percent = Math.min(100, Math.max(0, parseInt(match[1], 10)))
           if (percent === lastReportedPercent) continue
           lastReportedPercent = percent
-          onProgress({ percent })
+          onProgress({ percent, phase: 'download' })
+          if (percent === 100 && !transcodeAnnounced) {
+            transcodeAnnounced = true
+            onProgress({ percent: 100, phase: 'transcode' })
+          }
         }
       }
 

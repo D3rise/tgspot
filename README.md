@@ -33,9 +33,17 @@ whitelisted users in DMs or groups.
 
 - Talk to [@BotFather](https://t.me/BotFather), run `/newbot`, follow the
   prompts, and save the token.
-- **Recommended:** run `/setprivacy` → **Enable** privacy mode. In groups the
-  bot will then only see messages that explicitly mention it, which is exactly
-  what we want.
+- **Required:** run `/setprivacy` → **Enable** privacy mode. The bot is
+  designed to operate without read access to arbitrary group messages —
+  in groups it only ever acts on messages that explicitly `@`-mention it
+  (or are replies to its own messages, or `/cmd@botname` commands). Privacy
+  mode enforces this at the Telegram side, so unrelated conversations in
+  the group never reach the bot at all. DMs are unaffected by privacy mode
+  and continue to work normally.
+
+  > If the bot was already added to a group before you enabled privacy mode,
+  > remove it and re-add it — Telegram only applies the new setting to
+  > groups joined after the change.
 
 ### 2. Generate `credentials.json` with librespot-auth
 
@@ -162,6 +170,11 @@ Spotify URL:
 
 The bot replies in the same group chat. The whitelist check still applies —
 only whitelisted senders trigger a download; other members are ignored.
+
+Because the bot runs with Telegram privacy mode enabled, it does **not**
+see any group messages that don't mention it. If you send a plain Spotify
+URL in a group without `@`-mentioning the bot, nothing happens — that's by
+design.
 
 ### Supported link types
 

@@ -12,7 +12,9 @@ import { Lifecycle } from './lifecycle'
 const HELP_TEXT =
   'Пришли ссылку на трек или альбом в Spotify — я скачаю и отправлю.\n' +
   'Пример: https://open.spotify.com/track/0hBUik7RITAPmSlnOGiWdm\n\n' +
-  'В группе — упомяни меня в том же сообщении со ссылкой.'
+  'В группах я работаю в режиме privacy: реагирую только на сообщения, ' +
+  'в которых меня явно упомянули через @. Пример:\n' +
+  '@botname https://open.spotify.com/track/...'
 
 export interface HandlerDeps {
   bot: Bot
