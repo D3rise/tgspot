@@ -1,0 +1,21 @@
+{
+  "name": "tgspot",
+  "version": "1.0.0",
+  "description": "Telegram bot that downloads Spotify tracks and albums via zotify",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "grammy": "^1.30.0",
+    "node-id3": "^0.2.6",
+    "spotify-url-info": "^3.2.15"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "typescript": "^5.5.3"
+  },
+  "private": true
+}
