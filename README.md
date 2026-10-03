@@ -110,18 +110,47 @@ cp .env.example .env
 | `ADMIN_USERNAME` | Username (without `@`) that receives auth-error notifications. The bot can only DM the admin after the admin has messaged the bot at least once. |
 | `ZOTIFY_CREDENTIALS_PATH` | Path to `credentials.json` inside the container. Defaults to `/data/credentials.json`. |
 
-### 4. Build and run with Docker
+### 4. Run a local tgspot instance from GHCR
+
+Complete steps 1–3 first. Run the commands below from the directory
+containing your configured `.env` and Spotify `credentials.json`, with
+Docker running.
+
+The commands use `ghcr.io/d3rise/tgspot:latest`. This image and tag must
+already be published to GitHub Container Registry; this repository does
+not currently include an image-publishing workflow. If you published a
+different tag, replace `latest` in the commands below.
+
+For a private package, log in first using your GitHub username and a
+personal access token (classic) with `read:packages` and access to the package
+(see [GHCR authentication](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-to-the-container-registry)):
 
 ```bash
-docker build -t tgspot .
+docker login ghcr.io -u YOUR_GITHUB_USERNAME
+# Paste the token at the password prompt.
+```
+
+Public packages can be pulled without logging in.
+
+Pull the image and start the bot:
+
+```bash
+docker pull ghcr.io/d3rise/tgspot:latest
+test -f credentials.json
 
 docker run -d \
   --name tgspot \
   --restart unless-stopped \
   --env-file .env \
-  -v "$(pwd)/credentials.json:/data/credentials.json:ro" \
-  tgspot
+  --mount "type=bind,source=$(pwd)/credentials.json,target=/data/credentials.json,readonly" \
+  ghcr.io/d3rise/tgspot:latest
 ```
+
+The credentials file must exist before starting the container. Keep
+`ZOTIFY_CREDENTIALS_PATH=/data/credentials.json` in `.env` to match the
+mount. For the default public Telegram API, leave `TELEGRAM_BOT_API_ROOT`
+unset. No inbound port or database is needed. Run only one instance for
+the same bot token.
 
 Check logs:
 
@@ -129,7 +158,29 @@ Check logs:
 docker logs -f tgspot
 ```
 
-You should see `[bot] running as @your_bot_username`.
+You should see `[bot] running as @your_bot_username`. Open the bot in
+Telegram, press **Start**, and send a track link from a whitelisted account
+to verify delivery.
+
+To update the image, pull it again, remove the old container, and repeat
+the `docker run` command above:
+
+```bash
+docker pull ghcr.io/d3rise/tgspot:latest
+docker stop tgspot
+docker rm tgspot
+```
+
+Your `.env` and `credentials.json` remain on the host. Removing the
+container loses any queued downloads; resend unfinished links after startup.
+
+If you want to build the image locally for development instead:
+
+```bash
+docker build -t tgspot:local .
+```
+
+Use `tgspot:local` instead of the GHCR image in the same `docker run` command.
 
 ## Usage
 
@@ -187,10 +238,12 @@ design.
 
 ### Updating the whitelist
 
-Edit `WHITELIST` in `.env`, then restart:
+Edit `WHITELIST` in `.env`, then recreate the container using the
+`docker run` command from step 4 so Docker reads the updated environment:
 
 ```bash
-docker restart tgspot
+docker stop tgspot
+docker rm tgspot
 ```
 
 ### Rotating Spotify credentials
