@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "grammy": "^1.30.0",
-    "node-id3": "^0.2.6",
     "spotify-url-info": "^3.2.15"
   },
   "devDependencies": {

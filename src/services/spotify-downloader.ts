@@ -3,31 +3,44 @@ import { mkdir, readdir, rm } from 'fs/promises'
 import { randomUUID } from 'crypto'
 import path from 'path'
 import os from 'os'
-
-export class DownloadAuthError extends Error {}
-export class DownloadError extends Error {}
-
-export interface DownloadResult {
-  workDir: string
-  files: string[]
-}
-
-export type DownloadPhase = 'download' | 'transcode'
-
-export interface DownloadProgress {
-  percent: number
-  phase: DownloadPhase
-}
-
-export type ProgressListener = (progress: DownloadProgress) => void
+import {
+  DownloadAuthError,
+  DownloadError,
+  DownloadOptions,
+  DownloadResult,
+  ProgressListener,
+  TrackDownloader,
+} from './downloader-types'
 
 const AUTH_KEYWORDS = ['credentials', 'unauthorized', 'auth', 'login', 'token expired', 'premium']
 const PROGRESS_RE = /(\d{1,3})%/
+// If zotify emits nothing to stdout/stderr for this long, assume it hung and kill it.
+// zotify с --print-download-progress постоянно печатает проценты, поэтому 3 минуты
+// без единой строки — верный признак зависания (сеть/spotify auth-loop).
+const IDLE_TIMEOUT_MS = 3 * 60 * 1000
 
-export class DownloaderService {
+export class SpotifyDownloader implements TrackDownloader {
   constructor(private readonly credentialsPath: string) {}
 
-  async download(url: string, onProgress?: ProgressListener): Promise<DownloadResult> {
+  async downloadWithRetry(url: string, opts: DownloadOptions = {}): Promise<DownloadResult> {
+    const attempts = opts.attempts ?? 2
+    let lastErr: unknown
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        return await this.download(url, opts.onProgress)
+      } catch (err) {
+        lastErr = err
+        if (err instanceof DownloadAuthError) throw err
+        console.warn(
+          `[spotify-downloader] attempt ${attempt}/${attempts} failed for ${url}:`,
+          err instanceof Error ? err.message : err,
+        )
+      }
+    }
+    throw lastErr
+  }
+
+  private async download(url: string, onProgress?: ProgressListener): Promise<DownloadResult> {
     const workDir = path.join(os.tmpdir(), 'tgspot', randomUUID())
     await mkdir(workDir, { recursive: true })
 
@@ -44,27 +57,6 @@ export class DownloaderService {
       throw new DownloadError('zotify finished but produced no .mp3 files')
     }
     return { workDir, files }
-  }
-
-  async downloadWithRetry(
-    url: string,
-    attempts = 2,
-    onProgress?: ProgressListener,
-  ): Promise<DownloadResult> {
-    let lastErr: unknown
-    for (let attempt = 1; attempt <= attempts; attempt++) {
-      try {
-        return await this.download(url, onProgress)
-      } catch (err) {
-        lastErr = err
-        if (err instanceof DownloadAuthError) throw err
-        console.warn(
-          `[downloader] attempt ${attempt}/${attempts} failed for ${url}:`,
-          err instanceof Error ? err.message : err,
-        )
-      }
-    }
-    throw lastErr
   }
 
   async cleanup(workDir: string): Promise<void> {
@@ -116,6 +108,23 @@ export class DownloaderService {
       let progressBuffer = ''
       let lastReportedPercent = -1
       let transcodeAnnounced = false
+      let killedForIdle = false
+
+      let idleTimer: NodeJS.Timeout | null = null
+      const clearIdleTimer = () => {
+        if (idleTimer) {
+          clearTimeout(idleTimer)
+          idleTimer = null
+        }
+      }
+      const armIdleTimer = () => {
+        clearIdleTimer()
+        idleTimer = setTimeout(() => {
+          killedForIdle = true
+          child.kill('SIGKILL')
+        }, IDLE_TIMEOUT_MS)
+      }
+      armIdleTimer()
 
       const consumeProgress = (chunk: string) => {
         if (!onProgress) return
@@ -139,15 +148,28 @@ export class DownloaderService {
       child.stdout.on('data', (chunk) => {
         const s = chunk.toString()
         stdout += s
+        armIdleTimer()
         consumeProgress(s)
       })
       child.stderr.on('data', (chunk) => {
         const s = chunk.toString()
         stderr += s
+        armIdleTimer()
         consumeProgress(s)
       })
-      child.on('error', (err) => reject(new DownloadError(`failed to spawn zotify: ${err.message}`)))
+      child.on('error', (err) => {
+        clearIdleTimer()
+        reject(new DownloadError(`failed to spawn zotify: ${err.message}`))
+      })
       child.on('close', (code) => {
+        clearIdleTimer()
+        if (killedForIdle) {
+          return reject(
+            new DownloadError(
+              `zotify hung: no output for ${Math.round(IDLE_TIMEOUT_MS / 1000)}s, killed`,
+            ),
+          )
+        }
         if (code === 0) return resolve()
         const output = `${stdout}\n${stderr}`.toLowerCase()
         const isAuth = AUTH_KEYWORDS.some((k) => output.includes(k))

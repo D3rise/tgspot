@@ -1,9 +1,7 @@
-import { InputFile } from 'grammy'
 import type { Context } from 'grammy'
-import { readFile } from 'fs/promises'
-import path from 'path'
 import { JobReporter } from '../services/job-reporter'
 import { MetadataService } from '../services/metadata'
+import { sendTrackToChat } from './audio-sender'
 
 const CHAT_ACTION_INTERVAL_MS = 4000
 const STATUS_THROTTLE_MS = 1000
@@ -71,19 +69,10 @@ export class TelegramJobReporter implements JobReporter {
   }
 
   async sendAudio(filePath: string): Promise<void> {
-    const meta = await this.metadata.extract(filePath)
-    const audio = new InputFile(await readFile(filePath), path.basename(filePath))
-    const thumbnail = meta.thumbnailPath
-      ? new InputFile(await readFile(meta.thumbnailPath), path.basename(meta.thumbnailPath))
-      : undefined
-    await this.ctx.replyWithAudio(audio, {
-      title: meta.title,
-      performer: meta.performer,
-      duration: meta.durationSec ?? undefined,
-      thumbnail,
-      reply_parameters: this.ctx.message
-        ? { message_id: this.ctx.message.message_id }
-        : undefined,
+    if (this.ctx.chat === undefined) return
+    await sendTrackToChat(this.ctx.api, this.metadata, filePath, {
+      chatId: this.ctx.chat.id,
+      replyToMessageId: this.ctx.message?.message_id,
     })
   }
 

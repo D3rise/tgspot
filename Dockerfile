@@ -14,12 +14,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 ENV PIPX_HOME=/opt/pipx \
     PIPX_BIN_DIR=/usr/local/bin
-RUN pipx install git+https://github.com/Googolplexed0/zotify.git
+RUN pipx install git+https://github.com/Googolplexed0/zotify.git \
+    && pipx install "https://github.com/llistochek/yandex-music-downloader/archive/main.zip"
 
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install --omit=dev
 COPY --from=build /app/dist ./dist
+COPY scripts ./scripts
 
 RUN mkdir -p /data
 VOLUME ["/data"]
