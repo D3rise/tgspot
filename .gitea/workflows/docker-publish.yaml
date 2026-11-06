@@ -39,9 +39,9 @@ jobs:
           REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
           REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         run: |
-          printf '%s' "REGISTRY_PASSWORD" | \
+          printf '%s' "$REGISTRY_PASSWORD" | \
             docker login "$REGISTRY" \
-              --username "REGISTRY_USERNAME" \
+              --username "$REGISTRY_USERNAME" \
               --password-stdin
 
       - name: Build image
