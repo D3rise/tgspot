@@ -12,7 +12,7 @@ jobs:
       system_packages: ffmpeg
 
       autodeploy: true
-      gitops_repository: nerv/gitops
+      gitops_repository: nerv/ci
       gitops_path: apps/tgspot
 
     secrets: inherit
