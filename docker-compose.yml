@@ -20,7 +20,7 @@ services:
     depends_on:
       tg-bot-api:
         condition: service_started
-    env_file: .env # test
+    env_file: .env
     environment:
       TELEGRAM_BOT_API_ROOT: http://tg-bot-api:8081
     stop_grace_period: 1h
