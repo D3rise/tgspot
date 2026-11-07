@@ -22,7 +22,17 @@ pub struct Downloaded {
     pub path: PathBuf,
     pub thumbnail: Option<PathBuf>,
     pub track: Track,
+    pub quality: String,
     pub warning: Option<String>,
+}
+
+impl Downloaded {
+    pub fn caption(&self) -> String {
+        match &self.warning {
+            Some(warning) => format!("{}\n{warning}", self.quality),
+            None => self.quality.clone(),
+        }
+    }
 }
 
 pub async fn run(command: &mut Command) -> Result<Vec<u8>> {
@@ -148,13 +158,62 @@ pub async fn finish(
         tokio::fs::metadata(&path).await?.len() > 0,
         "FFmpeg produced an empty file"
     );
+    let quality = audio_quality(&path).await?;
     Ok(Downloaded {
         directory,
         path,
         thumbnail,
         track,
+        quality,
         warning,
     })
+}
+
+async fn audio_quality(path: &Path) -> Result<String> {
+    let bytes = run(Command::new("ffprobe")
+        .args([
+            "-v",
+            "error",
+            "-select_streams",
+            "a:0",
+            "-show_entries",
+            "stream=codec_name,bit_rate,bits_per_raw_sample,sample_rate",
+            "-of",
+            "json",
+        ])
+        .arg(path))
+    .await
+    .context("Cannot inspect audio quality with ffprobe")?;
+    let probe: serde_json::Value = serde_json::from_slice(&bytes)?;
+    let stream = &probe["streams"][0];
+    let codec = stream["codec_name"]
+        .as_str()
+        .context("Missing audio codec")?;
+    let mut parts = vec![codec.to_uppercase()];
+    let field = if codec == "flac" {
+        "bits_per_raw_sample"
+    } else {
+        "bit_rate"
+    };
+    if let Some(value) = stream[field]
+        .as_str()
+        .and_then(|s| s.parse::<u32>().ok())
+        .filter(|&n| n > 0)
+    {
+        parts.push(if codec == "flac" {
+            format!("{value} бит")
+        } else {
+            format!("{:.0} кбит/с", f64::from(value) / 1000.0)
+        });
+    }
+    if let Some(rate) = stream["sample_rate"]
+        .as_str()
+        .and_then(|s| s.parse::<u32>().ok())
+        .filter(|&n| n > 0)
+    {
+        parts.push(format!("{} кГц", f64::from(rate) / 1000.0));
+    }
+    Ok(parts.join(" · "))
 }
 
 pub fn safe_filename(value: &str) -> String {
@@ -219,6 +278,8 @@ mod tests {
         let result = finish(dir, track, Format::SpotifyMp3, None, None, &progress)
             .await
             .unwrap();
+        assert_eq!(result.quality, "MP3 · 320 кбит/с · 44.1 кГц");
+        assert_eq!(result.caption(), result.quality);
         let bytes = run(Command::new("ffprobe")
             .args([
                 "-v",
@@ -237,5 +298,53 @@ mod tests {
         let directory = result.directory.path().to_owned();
         drop(result);
         assert!(!directory.exists());
+    }
+
+    #[tokio::test]
+    async fn captions_report_actual_flac_and_aac_quality_before_downgrade_warning() {
+        for (codec, format, sample_format) in [
+            ("flac", Format::Flac, "s16"),
+            ("flac", Format::Flac, "s32"),
+            ("aac", Format::M4a, "fltp"),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            run(Command::new("ffmpeg")
+                .args([
+                    "-nostdin",
+                    "-v",
+                    "error",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "sine=frequency=440:duration=0.5:sample_rate=48000",
+                    "-c:a",
+                    codec,
+                    "-sample_fmt",
+                    sample_format,
+                    "-f",
+                    if codec == "flac" { "flac" } else { "adts" },
+                ])
+                .arg(dir.path().join("source.audio")))
+            .await
+            .unwrap();
+            let track = Track::fallback(MusicLink::track(Source::Yandex, "123", None).unwrap());
+            let (progress, _) = watch::channel(String::new());
+            let warning = (codec == "aac")
+                .then(|| "⚠️ Яндекс отдал качество ниже запрошенного FLAC.".to_owned());
+            let file = finish(dir, track, format, None, warning.clone(), &progress)
+                .await
+                .unwrap();
+            if codec == "flac" {
+                let bits = if sample_format == "s16" { 16 } else { 24 };
+                assert_eq!(file.caption(), format!("FLAC · {bits} бит · 48 кГц"));
+            } else {
+                assert!(file.quality.starts_with("AAC · "));
+                assert!(file.quality.ends_with(" кбит/с · 48 кГц"));
+                assert_eq!(
+                    file.caption(),
+                    format!("{}\n{}", file.quality, warning.unwrap())
+                );
+            }
+        }
     }
 }

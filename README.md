@@ -483,8 +483,10 @@ Compose sets a one-hour stop grace period; a forced kill still loses the queue.
   `sendDocument`. The file still has embedded tags and cover art, but it
   won't appear in the in-chat music player.
 - **Quality.** Spotify's 320 kbps Vorbis stream is transcoded to MP3 320;
-  this is lossy conversion. If a Yandex track has no lossless master, the bot
-  keeps the returned AAC/MP3 format and includes a warning in the caption.
+  this is lossy conversion. Captions show the final file's codec, bitrate
+  (bit depth for FLAC), and sample rate instead of the track name, including
+  inline delivery. If Yandex returns AAC/MP3 when FLAC was requested, the
+  caption also warns that Yandex delivered quality below the requested FLAC.
 - **Provider compatibility.** Yandex's API is unofficial. The implementation
   follows [yandex-music-downloader's signing and decryption](https://github.com/llistochek/yandex-music-downloader/blob/main/ymd/api.py)
   and [yandex-music-api](https://github.com/MarshalX/yandex-music-api).
