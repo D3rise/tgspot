@@ -9,5 +9,6 @@ jobs:
     with:
       image: d3rise/tgspot
       registry: registry.nerv.dev
+      system_packages: ffmpeg
 
     secrets: inherit
