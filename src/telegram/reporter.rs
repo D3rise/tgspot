@@ -149,12 +149,8 @@ impl Reporter {
             ..
         } = &self.target
         {
-            let mut media = json!({"type":sent.kind,"media":sent.file_id});
-            let mut caption = file.track.display_name();
-            if let Some(warning) = &file.warning {
-                caption.push_str(&format!("\n{warning}"));
-            }
-            media["caption"] = json!(truncate(&caption, 1000));
+            let media = json!({"type":sent.kind,"media":sent.file_id,
+                "caption":truncate(&file.caption(), 1000)});
             self.api
                 .call(
                     "editMessageMedia",

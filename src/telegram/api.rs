@@ -123,14 +123,10 @@ impl Api {
         kind: &'static str,
     ) -> Result<Sent> {
         let part = file_part(&file.path).await?;
-        let caption = match &file.warning {
-            Some(warning) => format!("{}\n{warning}", file.track.display_name()),
-            None => file.track.display_name(),
-        };
         let mut form = Form::new()
             .text("chat_id", chat.to_string())
             .part(kind, part)
-            .text("caption", truncate(&caption, 1000));
+            .text("caption", truncate(&file.caption(), 1000));
         if kind == "audio" {
             form = form
                 .text("title", file.track.title.clone())

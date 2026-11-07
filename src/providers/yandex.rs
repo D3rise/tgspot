@@ -152,10 +152,8 @@ impl Yandex {
             "aac" | "he-aac" | "aac-mp4" | "he-aac-mp4" => Format::M4a,
             _ => anyhow::bail!("Unsupported Yandex audio codec"),
         };
-        let warning =
-            (quality == Quality::Lossless && !matches!(format, Format::Flac)).then(|| {
-                "⚠️ FLAC недоступен для этого трека — Яндекс отдал аудио с потерями.".to_owned()
-            });
+        let warning = (quality == Quality::Lossless && !matches!(format, Format::Flac))
+            .then(|| "⚠️ Яндекс отдал качество ниже запрошенного FLAC.".to_owned());
         let directory = tempfile::Builder::new().prefix("tgspot-").tempdir()?;
         let raw = directory.path().join("source.audio");
         let urls = info["urls"]
