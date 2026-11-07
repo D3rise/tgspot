@@ -11,7 +11,7 @@ on:
 
 jobs:
   pipeline:
-    uses: self:nerv/ci/.gitea/workflows/rust.yaml@v1
+    uses: nerv/ci/.gitea/workflows/rust.yaml@v1
 
     with:
       image: d3rise/tgspot
