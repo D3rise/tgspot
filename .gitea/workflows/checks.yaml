@@ -5,3 +5,5 @@ on: [pull_request, merge_group, push, workflow_dispatch]
 jobs:
   checks:
     uses: self:nerv/ci/.gitea/workflows/rust-checks.yaml@main
+    with:
+      system_packages: "ffmpeg"
