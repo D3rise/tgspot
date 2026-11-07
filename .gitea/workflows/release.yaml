@@ -1,0 +1,20 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [Checks]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  release:
+    uses: self:nerv/ci/.gitea/workflows/release.yaml@main
+    with:
+      registry: ${{ vars.REGISTRY }}
+      image: ${{ vars.IMAGE }}
+      gitops_repository: ${{ vars.GITOPS_REPOSITORY }}
+      gitops_path: ${{ vars.GITOPS_PATH }}
+    secrets:
+      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
