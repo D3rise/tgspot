@@ -1,30 +1,26 @@
-FROM node:20-slim AS build
+FROM rust:1.90.0-bookworm AS build
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm install
-COPY tsconfig.json ./
-COPY src ./src
-RUN npm run build
-
-FROM node:20-slim
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-venv pipx ffmpeg git ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
+RUN rustup component add rustfmt clippy
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+COPY tests ./tests
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/app/target \
+    cargo fmt --all --check \
+    && cargo clippy --all-targets --locked -- -D warnings \
+    && cargo test --all-targets --locked \
+    && cargo build --release --locked \
+    && install -Dm755 target/release/tgspot /out/tgspot
 
-ENV PIPX_HOME=/opt/pipx \
-    PIPX_BIN_DIR=/usr/local/bin
-RUN pipx install git+https://github.com/Googolplexed0/zotify.git \
-    && pipx install "https://github.com/llistochek/yandex-music-downloader/archive/main.zip"
-
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --uid 10001 --create-home tgspot \
+    && mkdir -p /app
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm install --omit=dev
-COPY --from=build /app/dist ./dist
-COPY scripts ./scripts
-
-RUN mkdir -p /data
-VOLUME ["/data"]
-ENV ZOTIFY_CREDENTIALS_PATH=/data/credentials.json
-
-CMD ["node", "dist/index.js"]
+COPY --from=build /out/tgspot /usr/local/bin/tgspot
+USER tgspot
+ENV RUST_LOG=tgspot=info,librespot=warn
+CMD ["tgspot"]

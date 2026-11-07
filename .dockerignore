@@ -5,5 +5,12 @@ dist
 .vscode
 .env
 credentials.json
+**/secret.local.yaml
 *.log
 .DS_Store
+
+target
+.env.*
+
+spotify-auth
+**/credentials.json
