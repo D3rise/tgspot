@@ -4,7 +4,7 @@ on: [push]
 
 jobs:
   pipeline:
-    uses: nerv/ci/.gitea/workflows/rust.yaml@master
+    uses: nerv/ci/.gitea/workflows/rust.yaml@main
 
     with:
       image: d3rise/tgspot
