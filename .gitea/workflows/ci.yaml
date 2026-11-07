@@ -13,6 +13,6 @@ jobs:
 
       autodeploy: true
       gitops_repository: nerv/ci
-      gitops_path: apps/tgspot
+      gitops_path: nerv-apps/manifests/tgspot
 
     secrets: inherit
