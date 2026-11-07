@@ -4,6 +4,7 @@ dist
 .idea
 .vscode
 .env
+.gitea
 credentials.json
 **/secret.local.yaml
 *.log
