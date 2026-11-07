@@ -4,4 +4,4 @@ on: [pull_request, merge_group, push, workflow_dispatch]
 
 jobs:
   checks:
-    uses: self:nerv/ci/.gitea/workflows/rust.yaml@main
+    uses: self:nerv/ci/.gitea/workflows/rust-checks.yaml@main
